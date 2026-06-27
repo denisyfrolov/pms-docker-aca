@@ -1,0 +1,69 @@
+#!/usr/bin/with-contenv bash
+
+if [ "${DEBUG,,}" = "true" ]; then
+  set -x
+fi
+
+# Only enable SSH when an authorized key is provided
+if [ -z "${SSH_AUTHORIZED_KEYS}" ]; then
+  echo "SSH disabled (set SSH_AUTHORIZED_KEYS to enable)."
+  exit 0
+fi
+
+sshDir="/config/.ssh"
+hostKeyDir="/config/ssh-host-keys"
+configDefaultsDir="/config-defaults"
+hostKeyDefaultDir="${configDefaultsDir}/ssh-host-keys"
+
+mkdir -p "${hostKeyDir}"
+
+# Restore persisted host keys from /config-defaults if we have them there, so SSH
+# clients don't see a changed host key (mismatch warning) after a rebuild/restart.
+if [ -f "${hostKeyDefaultDir}/ssh_host_ed25519_key" ]; then
+  echo "Restoring SSH host keys from defaults"
+  cp -a "${hostKeyDefaultDir}/." "${hostKeyDir}/"
+fi
+
+# Generate host keys only if we still don't have them, then persist them to
+# /config-defaults so they survive future rebuilds.
+if [ ! -f "${hostKeyDir}/ssh_host_ed25519_key" ]; then
+  echo "Generating SSH host keys"
+  ssh-keygen -t ed25519 -f "${hostKeyDir}/ssh_host_ed25519_key" -N "" >/dev/null
+  ssh-keygen -t rsa -b 4096 -f "${hostKeyDir}/ssh_host_rsa_key" -N "" >/dev/null
+
+  if [ -d "${configDefaultsDir}" ]; then
+    echo "Persisting SSH host keys to defaults"
+    mkdir -p "${hostKeyDefaultDir}"
+    cp -a "${hostKeyDir}/ssh_host_"* "${hostKeyDefaultDir}/"
+  fi
+fi
+
+# sshd requires private host keys to be tightly permissioned (and root-owned).
+chmod 600 "${hostKeyDir}/ssh_host_"*key 2>/dev/null
+chmod 644 "${hostKeyDir}/ssh_host_"*key.pub 2>/dev/null
+
+# Install authorized key for the plex user
+mkdir -p "${sshDir}"
+echo "${SSH_AUTHORIZED_KEYS}" > "${sshDir}/authorized_keys"
+chmod 700 "${sshDir}"
+chmod 600 "${sshDir}/authorized_keys"
+chown -R plex:plex "${sshDir}"
+
+# plex user normally has /bin/false; tunneling needs a usable shell
+usermod -s /bin/bash plex
+
+# sshd config tuned for port-forwarding / tunneling
+cat > /etc/ssh/sshd_config.d/tunnel.conf <<-EOF
+Port 22
+HostKey ${hostKeyDir}/ssh_host_ed25519_key
+HostKey ${hostKeyDir}/ssh_host_rsa_key
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+AllowUsers plex
+AllowTcpForwarding yes
+GatewayPorts clientspecified
+X11Forwarding no
+EOF
+
+echo "SSH enabled for user 'plex'."

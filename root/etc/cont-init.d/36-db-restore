@@ -1,0 +1,51 @@
+#!/usr/bin/with-contenv bash
+
+# Restore the most recent Plex Databases backup BEFORE the plex service starts.
+# Runs in cont-init.d, which executes before any services.d service is started.
+
+# If we are debugging, enable trace
+if [ "${DEBUG,,}" = "true" ]; then
+  set -x
+fi
+
+home="$(echo ~plex)"
+pmsApplicationSupportDir="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR:-${home}/Library/Application Support}"
+configDefaultsDir="/config-defaults"
+dbDir="${pmsApplicationSupportDir}/Plex Media Server/Plug-in Support/Databases"
+backupDir="${configDefaultsDir}/Backup"
+
+# Pick the most recent VALID backup archive. Test each with `unzip -t` and skip
+# (and remove) any that are truncated/corrupt — e.g. left behind by a SIGKILL
+# that interrupted a backup mid-write.
+latestBackup=""
+while IFS= read -r candidate; do
+  [ -z "${candidate}" ] && continue
+  if unzip -t -qq "${candidate}" >/dev/null 2>&1; then
+    latestBackup="${candidate}"
+    break
+  fi
+  echo "db-restore: archive ${candidate} is corrupt/truncated, removing."
+  rm -f "${candidate}"
+done < <(ls -1t "${backupDir}"/Databases.bak.*.zip 2>/dev/null)
+
+if [ -z "${latestBackup}" ]; then
+  echo "db-restore: no valid backup archive found in ${backupDir}, skipping restore."
+  exit 0
+fi
+
+echo "db-restore: restoring from ${latestBackup}"
+
+# The Databases directory may not exist yet; make sure it (and its parents) do.
+mkdir -p "${dbDir}"
+
+# The archive stores the 'Databases/...' folder, so extract into its parent.
+if unzip -o -q "${latestBackup}" -d "$(dirname "${dbDir}")"; then
+  # Plex runs as 'plex'. We created intermediate dirs (e.g. "Plug-in Support")
+  # as root via mkdir -p, and unzip wrote files as root too. Chown the whole
+  # "Plex Media Server" subtree so Plex can create siblings like "Data";
+  # otherwise it fails at runtime with EACCES / Permission denied.
+  chown -R plex:plex "${pmsApplicationSupportDir}/Plex Media Server"
+  echo "db-restore: restore complete."
+else
+  echo "db-restore: restore FAILED from ${latestBackup}"
+fi

@@ -1,0 +1,17 @@
+#!/usr/bin/with-contenv bash
+
+# Minimal HTTP healthcheck endpoint.
+# Responds with a small JSON body to any request.
+#
+# Environment variables:
+#   HEALTHCHECK_HTTP_PORT - port to listen on (default: 9000)
+
+port="${HEALTHCHECK_HTTP_PORT:-9000}"
+
+echo "Starting healthcheck HTTP server on port ${port}."
+
+# socat keeps a persistent listener (fork) and spawns a fresh handler per
+# connection. The handler drains the request before replying, so the socket
+# closes cleanly (no RST / truncated response).
+exec socat -T 5 TCP-LISTEN:${port},reuseaddr,fork \
+  EXEC:/usr/local/bin/healthcheck-respond

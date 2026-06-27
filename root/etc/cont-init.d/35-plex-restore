@@ -1,0 +1,39 @@
+#!/usr/bin/with-contenv bash
+
+# If we are debugging, enable trace
+if [ "${DEBUG,,}" = "true" ]; then
+  set -x
+fi
+
+function getPref {
+  local key="$1"
+  
+  xmlstarlet sel -T -t -m "/Preferences" -v "@${key}" -n "${prefFile}"
+}
+
+home="$(echo ~plex)"
+pmsApplicationSupportDir="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR:-${home}/Library/Application Support}"
+configDefaultsDir="/config-defaults"
+
+# Copy default pref file if it doesn't exist already
+prefFile="${pmsApplicationSupportDir}/Plex Media Server/Preferences.xml"
+prefDefaultFile="${configDefaultsDir}/Preferences.xml"
+if [ ! -e "${prefFile}" ] && [ -e "${prefDefaultFile}" ]; then
+  echo "Restoring pref file from defaults"
+  mkdir -p "$(dirname "${prefFile}")"
+  cp "${prefDefaultFile}" "${prefFile}"
+  chown -R plex:plex "$(dirname "${prefFile}")"
+fi
+
+# Restore the persisted plex.direct certificate (Cache/cert-v2.p12). It is paired
+# with the CertificateUUID in Preferences.xml, so persisting both lets Plex reuse
+# the existing certificate instead of re-acquiring a new one on every boot —
+# which is what causes "unable to connect securely" after repeated restarts.
+certFile="${pmsApplicationSupportDir}/Plex Media Server/Cache/cert-v2.p12"
+certDefaultFile="${configDefaultsDir}/cert-v2.p12"
+if [ ! -e "${certFile}" ] && [ -e "${certDefaultFile}" ]; then
+  echo "Restoring plex.direct certificate from defaults"
+  mkdir -p "$(dirname "${certFile}")"
+  cp "${certDefaultFile}" "${certFile}"
+  chown -R plex:plex "$(dirname "${certFile}")"
+fi

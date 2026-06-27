@@ -1,0 +1,45 @@
+#!/usr/bin/with-contenv bash
+
+# Back up the Plex "Databases" directory into /config-defaults/Backup as a
+# timestamped zip. This is intended to be called from the plex service 'finish'
+# script, i.e. AFTER the Plex process has fully stopped.
+
+# If we are debugging, enable trace
+if [ "${DEBUG,,}" = "true" ]; then
+  set -x
+fi
+
+home="$(echo ~plex)"
+pmsApplicationSupportDir="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR:-${home}/Library/Application Support}"
+dbDir="${pmsApplicationSupportDir}/Plex Media Server/Plug-in Support/Databases"
+configDefaultsDir="/config-defaults"
+backupDir="${configDefaultsDir}/Backup"
+
+# Nothing to back up if the database directory is missing
+if [ ! -d "${dbDir}" ]; then
+  echo "db-backup: database dir not found (${dbDir}), nothing to back up."
+  exit 0
+fi
+
+# Skip if the config-defaults volume isn't mounted
+if [ ! -d "${configDefaultsDir}" ]; then
+  echo "db-backup: ${configDefaultsDir} not present, skipping backup."
+  exit 0
+fi
+
+mkdir -p "${backupDir}"
+
+ts="$(date +%Y%m%d%H%M%S)"
+backupFile="${backupDir}/Databases.bak.${ts}.zip"
+
+echo "db-backup: archiving Databases to ${backupFile}"
+
+# Zip the 'Databases' directory itself (stored as 'Databases/...') so it can be
+# extracted straight back into its parent on restore. Use fast compression (-1)
+# to keep the archive step short during the limited shutdown window.
+if ( cd "$(dirname "${dbDir}")" && zip -r -1 -q "${backupFile}" "$(basename "${dbDir}")" ); then
+  echo "db-backup: backup complete (${backupFile})"
+else
+  echo "db-backup: backup FAILED, removing incomplete archive."
+  rm -f "${backupFile}"
+fi

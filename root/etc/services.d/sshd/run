@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+
+if [ -z "${SSH_AUTHORIZED_KEYS}" ]; then
+  echo "sshd service disabled (no SSH_AUTHORIZED_KEYS)."
+  exec sleep infinity
+fi
+
+echo "Starting sshd."
+exec /usr/sbin/sshd -D -e

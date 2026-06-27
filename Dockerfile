@@ -27,7 +27,12 @@ RUN \
       curl \
       xmlstarlet \
       uuid-runtime \
+      openssh-server \
+      socat \
+      zip \
+      unzip \
       unrar && \
+    mkdir -p /var/run/sshd && \
     apt-get -y autoremove && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/*
@@ -48,11 +53,13 @@ RUN if [ "${TARGETPLATFORM}" = 'linux/arm/v7' ]; then \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/*
 
-EXPOSE 32400/tcp 8324/tcp 32469/tcp 1900/udp 32410/udp 32412/udp 32413/udp 32414/udp
+EXPOSE 22/tcp 9000/tcp 32400/tcp 8324/tcp 32469/tcp 1900/udp 32410/udp 32412/udp 32413/udp 32414/udp
 VOLUME /config /transcode
 
 ENV CHANGE_CONFIG_DIR_OWNERSHIP="true" \
-    HOME="/config"
+    HOME="/config" \
+    S6_SERVICES_GRACETIME="120000" \
+    S6_KILL_GRACETIME="120000"
 
 COPY root/ /
 

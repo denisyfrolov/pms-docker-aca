@@ -1,0 +1,21 @@
+#!/bin/bash
+# Per-connection HTTP handler for the healthcheck endpoint.
+# socat connects the client socket to this script's stdin/stdout.
+#
+# We MUST read (drain) the incoming request before responding. Otherwise the
+# unread request data triggers a TCP RST on close, which truncates the
+# response and logs "Connection reset by peer" in socat.
+
+# Pre-built HTTP response. Connection: close so the client returns immediately.
+body='{"status":"ok"}'
+response="HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${#body}\r\nConnection: close\r\n\r\n${body}"
+
+# Read request line + headers until the blank line that ends the headers.
+while IFS= read -r line; do
+  line="${line%$'\r'}"
+  [ -z "${line}" ] && break
+done
+
+printf '%b' "${response}"
+
+echo "healthcheck-http: responded 200 OK at $(date +%Y-%m-%dT%H:%M:%S)" >&2

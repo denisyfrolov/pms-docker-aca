@@ -1,0 +1,72 @@
+#!/usr/bin/with-contenv bash
+
+# If we are debugging, enable trace
+if [ "${DEBUG,,}" = "true" ]; then
+  set -x
+fi
+
+function getPref {
+  local key="$1"
+  
+  xmlstarlet sel -T -t -m "/Preferences" -v "@${key}" -n "${prefFile}"
+}
+
+echo "Starting prefFile-watch."
+
+home="$(echo ~plex)"
+pmsApplicationSupportDir="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR:-${home}/Library/Application Support}"
+configDefaultsDir="/config-defaults"
+prefFile="${pmsApplicationSupportDir}/Plex Media Server/Preferences.xml"
+prefDefaultFile="${configDefaultsDir}/Preferences.xml"
+certFile="${pmsApplicationSupportDir}/Plex Media Server/Cache/cert-v2.p12"
+certDefaultFile="${configDefaultsDir}/cert-v2.p12"
+
+# watchAction is executed via `bash -c`, so these must be in the environment.
+export prefFile prefDefaultFile certFile certDefaultFile
+
+# Each watched file has its own action, executed via `bash -c` when it changes.
+prefAction='if [ -d "$(dirname "${prefDefaultFile}")" ]; then ts="$(date +%Y%m%d%H%M%S)"; cp --backup --suffix=".bak.${ts}" "${prefFile}" "${prefDefaultFile}" && echo "prefFile-watch: pref file default updated (${ts})"; else echo "prefFile-watch: target dir $(dirname "${prefDefaultFile}") missing, skipping"; fi'
+certAction='if [ -d "$(dirname "${certDefaultFile}")" ]; then ts="$(date +%Y%m%d%H%M%S)"; cp --backup --suffix=".bak.${ts}" "${certFile}" "${certDefaultFile}" && echo "prefFile-watch: plex.direct certificate persisted (${ts})"; else echo "prefFile-watch: target dir $(dirname "${certDefaultFile}") missing, skipping"; fi'
+watchInterval=2
+
+if ! [[ "${watchInterval}" =~ ^[0-9]+$ ]] || [ "${watchInterval}" -lt 1 ]; then
+  echo "Invalid watchInterval='${watchInterval}'. Falling back to 2 seconds."
+  watchInterval=2
+fi
+
+fingerprint() {
+  local path="$1"
+  if [ -e "${path}" ]; then
+    # inode:size:mtime changes for writes/replacements on Linux filesystems.
+    stat -c '%i:%s:%Y' "${path}" 2>/dev/null || echo "__stat_error__"
+  else
+    echo "__missing__"
+  fi
+}
+
+lastPrefFingerprint="$(fingerprint "${prefFile}")"
+lastCertFingerprint="$(fingerprint "${certFile}")"
+
+echo "prefFile-watch monitoring: ${prefFile}"
+echo "prefFile-watch monitoring: ${certFile}"
+while true; do
+  sleep "${watchInterval}"
+
+  currentPrefFingerprint="$(fingerprint "${prefFile}")"
+  if [ "${currentPrefFingerprint}" != "${lastPrefFingerprint}" ]; then
+    echo "Change detected for ${prefFile}. Running action."
+    lastPrefFingerprint="${currentPrefFingerprint}"
+    if ! /bin/bash -c "${prefAction}"; then
+      echo "prefFile-watch pref action failed with exit code $?"
+    fi
+  fi
+
+  currentCertFingerprint="$(fingerprint "${certFile}")"
+  if [ "${currentCertFingerprint}" != "${lastCertFingerprint}" ]; then
+    echo "Change detected for ${certFile}. Running action."
+    lastCertFingerprint="${currentCertFingerprint}"
+    if [ -e "${certFile}" ] && ! /bin/bash -c "${certAction}"; then
+      echo "prefFile-watch cert action failed with exit code $?"
+    fi
+  fi
+done
