@@ -4,7 +4,7 @@ image:
   registry: index.docker.io
   repository: plexinc/pms-docker
   # renovate: datasource=custom.plex depName=plex versioning=loose
-  tag: "1.43.0.10492-121068a07"
+  tag: "1.43.3.10896-cb3ebc72d"
   sha: ""
   pullPolicy: IfNotPresent
 
@@ -111,7 +111,13 @@ pms:
   #   cpu: 100m
   #   memory: 128Mi
 
-  # -- Security context for PMS pods
+  # -- Security context applied to the PMS *pod*. Use this for pod-level fields
+  # such as `fsGroup`, `supplementalGroups` and `fsGroupChangePolicy`.
+  podSecurityContext: {}
+
+  # -- Security context applied to the PMS *container*. Use this for
+  # container-level fields such as `privileged`, `capabilities`,
+  # `readOnlyRootFilesystem` and `allowPrivilegeEscalation`.
   securityContext: {}
 
   # -- Enable process namespace sharing within the pod.
@@ -203,7 +209,7 @@ rclone:
     registry: index.docker.io
     repository: rclone/rclone
     # -- If unset use latest
-    tag: 1.70.3
+    tag: 1.75.0
     sha: ""
     pullPolicy: IfNotPresent
 
