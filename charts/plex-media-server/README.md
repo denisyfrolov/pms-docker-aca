@@ -1,6 +1,6 @@
 # plex-media-server
 
-![Version: 1.7.1](https://img.shields.io/badge/Version-1.7.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.43.0](https://img.shields.io/badge/AppVersion-1.43.0-informational?style=flat-square)
+![Version: 1.9.0](https://img.shields.io/badge/Version-1.9.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.43.0](https://img.shields.io/badge/AppVersion-1.43.0-informational?style=flat-square)
 
 **Homepage:** <https://www.plex.tv>
 
@@ -106,6 +106,7 @@ Before contributing, please read the [Code of Conduct](../../CODE_OF_CONDUCT.md)
 | extraContainers | list | `[]` |  |
 | extraEnv | object | `{}` |  |
 | extraInitContainers | object | `{}` |  |
+| extraManifests | list | `[]` | Extra manifests to deploy with the release, for objects this chart does not render (Gateway API policies, NetworkPolicy, ServiceMonitor, ExternalSecret, ...) so they are owned by the release rather than applied by hand beside it. May be a list or a map. Each entry is either a YAML object or a string; both are passed through `tpl`, so entries can use the release's values and the chart's named templates. |
 | extraVolumeMounts | list | `[]` | Optionally specify additional volume mounts for the PMS and init containers. |
 | extraVolumes | list | `[]` | Optionally specify additional volumes for the pod. |
 | fullnameOverride | string | `""` |  |
@@ -124,9 +125,9 @@ Before contributing, please read the [Code of Conduct](../../CODE_OF_CONDUCT.md)
 | ingress.ingressClassName | string | `"ingress-nginx"` | The ingress class that should be used |
 | ingress.tls | list | `[]` | Optional TLS configuration to provide valid https connections using an existing SSL certificate |
 | ingress.url | string | `""` | The url to use for the ingress reverse proxy to point at this pms instance |
-| initContainer | object | `{"image":{"pullPolicy":"IfNotPresent","registry":"index.docker.io","repository":"alpine","sha":"","tag":"3.22"},"script":""}` | A basic image that will convert the configmap to a file in the rclone config volume this is ignored if rclone is not enabled |
+| initContainer | object | `{"image":{"pullPolicy":"IfNotPresent","registry":"index.docker.io","repository":"alpine","sha":"","tag":"3.24"},"script":""}` | A basic image that will convert the configmap to a file in the rclone config volume this is ignored if rclone is not enabled |
 | initContainer.image.registry | string | `"index.docker.io"` | The public dockerhub registry |
-| initContainer.image.tag | string | `"3.22"` | If unset use latest |
+| initContainer.image.tag | string | `"3.24"` | If unset use latest |
 | initContainer.script | string | `""` | A custom script that will be run in an init container to do any setup before the PMS service starts up This will be run every time the pod starts, make sure that some mechanism is included to prevent this from running more than once if it should only be run on the first startup. |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
@@ -143,15 +144,16 @@ Before contributing, please read the [Code of Conduct](../../CODE_OF_CONDUCT.md)
 | pms.resources | object | `{}` |  |
 | pms.securityContext | object | `{}` | Security context applied to the PMS *container*. Use this for container-level fields such as `privileged`, `capabilities`, `readOnlyRootFilesystem` and `allowPrivilegeEscalation`. |
 | pms.shareProcessNamespace | bool | `false` | Enable process namespace sharing within the pod. |
+| pms.startupProbe | object | `{}` | Add a startup probe. This can be used to delay the liveness probe until PMS has finished DB migrations and prevent restarts. |
 | pms.storageClassName | string | `nil` | The storage class to use when provisioning the pms config volume this needs to be created manually, null will use the default |
 | priorityClassName | string | `""` |  |
-| rclone | object | `{"additionalArgs":[],"configSecret":"","enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"index.docker.io","repository":"rclone/rclone","sha":"","tag":"1.75.0"},"readOnly":true,"remotes":[],"resources":{}}` | The settings specific to rclone |
+| rclone | object | `{"additionalArgs":[],"configSecret":"","enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"index.docker.io","repository":"rclone/rclone","sha":"","tag":"1.75.1"},"readOnly":true,"remotes":[],"resources":{}}` | The settings specific to rclone |
 | rclone.additionalArgs | list | `[]` | Additional arguments to give to rclone when mounting the volume |
 | rclone.configSecret | string | `""` | The name of the secret that contains the rclone configuration file. The rclone config key must be called `rclone.conf` in the secret  All keys in configSecret will be available in /etc/rclone/. This might be useful if other files are needed, such as a private key for sftp mode. |
 | rclone.enabled | bool | `false` | If the rclone sidecar should be created |
-| rclone.image | object | `{"pullPolicy":"IfNotPresent","registry":"index.docker.io","repository":"rclone/rclone","sha":"","tag":"1.75.0"}` | The rclone image that should be used |
+| rclone.image | object | `{"pullPolicy":"IfNotPresent","registry":"index.docker.io","repository":"rclone/rclone","sha":"","tag":"1.75.1"}` | The rclone image that should be used |
 | rclone.image.registry | string | `"index.docker.io"` | The public dockerhub registry |
-| rclone.image.tag | string | `"1.75.0"` | If unset use latest |
+| rclone.image.tag | string | `"1.75.1"` | If unset use latest |
 | rclone.readOnly | bool | `true` | If the remote volumes should be mounted as read only |
 | rclone.remotes | list | `[]` | The remote drive that should be mounted using rclone this must be in the form of `name:[/optional/path]` this remote will be mounted at `/data/name` in the PMS container |
 | runtimeClassName | string | `""` | Specify your own runtime class name eg use gpu |
