@@ -63,6 +63,8 @@ ENV CHANGE_CONFIG_DIR_OWNERSHIP="true" \
 
 COPY root/ /
 
+RUN chmod +x /usr/local/bin/* /etc/cont-init.d/* /etc/services.d/*/*
+
 # Save version and install
 ARG PLEX_DISTRO=debian
 ARG TAG=beta
