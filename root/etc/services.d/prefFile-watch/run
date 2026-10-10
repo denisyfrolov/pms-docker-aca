@@ -34,6 +34,34 @@ if ! [[ "${watchInterval}" =~ ^[0-9]+$ ]] || [ "${watchInterval}" -lt 1 ]; then
   watchInterval=2
 fi
 
+# Backups older than this many days are pruned (0 disables pruning).
+backupRetentionDays="${PREF_BACKUP_RETENTION_DAYS:-7}"
+if ! [[ "${backupRetentionDays}" =~ ^[0-9]+$ ]]; then
+  echo "Invalid PREF_BACKUP_RETENTION_DAYS='${backupRetentionDays}'. Falling back to 7 days."
+  backupRetentionDays=7
+fi
+pruneIntervalSeconds=3600
+
+# Age is taken from the timestamp in the file name, since cp --backup renames
+# the old file and preserves its original mtime.
+pruneBackups() {
+  [ "${backupRetentionDays}" -eq 0 ] && return 0
+  [ -d "${configDefaultsDir}" ] || return 0
+
+  local cutoff file ts removed=0
+  cutoff="$(date -d "${backupRetentionDays} days ago" +%Y%m%d%H%M%S)"
+  for file in "${configDefaultsDir}"/Preferences.xml.bak.* "${configDefaultsDir}"/cert-v2.p12.bak.*; do
+    [ -f "${file}" ] || continue
+    ts="${file##*.bak.}"
+    [[ "${ts}" =~ ^[0-9]{14}$ ]] || continue
+    if [ "${ts}" -lt "${cutoff}" ]; then
+      rm -f "${file}" && removed=$((removed + 1))
+    fi
+  done
+  [ "${removed}" -gt 0 ] && echo "prefFile-watch: pruned ${removed} backup(s) older than ${backupRetentionDays} day(s)"
+  return 0
+}
+
 fingerprint() {
   local path="$1"
   if [ -e "${path}" ]; then
@@ -49,8 +77,15 @@ lastCertFingerprint="$(fingerprint "${certFile}")"
 
 echo "prefFile-watch monitoring: ${prefFile}"
 echo "prefFile-watch monitoring: ${certFile}"
+pruneBackups
+lastPruneAt="${SECONDS}"
 while true; do
   sleep "${watchInterval}"
+
+  if [ $((SECONDS - lastPruneAt)) -ge "${pruneIntervalSeconds}" ]; then
+    pruneBackups
+    lastPruneAt="${SECONDS}"
+  fi
 
   currentPrefFingerprint="$(fingerprint "${prefFile}")"
   if [ "${currentPrefFingerprint}" != "${lastPrefFingerprint}" ]; then

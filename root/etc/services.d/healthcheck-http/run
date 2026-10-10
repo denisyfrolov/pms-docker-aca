@@ -4,7 +4,13 @@
 # Responds with a small JSON body to any request.
 #
 # Environment variables:
-#   HEALTHCHECK_HTTP_PORT - port to listen on (default: 9000)
+#   HEALTHCHECK_HTTP_ENABLED - set to "false" to disable the service (default: true)
+#   HEALTHCHECK_HTTP_PORT    - port to listen on (default: 9000)
+
+if [ "${HEALTHCHECK_HTTP_ENABLED:-true}" = "false" ]; then
+  echo "healthcheck HTTP server disabled (HEALTHCHECK_HTTP_ENABLED=false)."
+  exec sleep infinity
+fi
 
 port="${HEALTHCHECK_HTTP_PORT:-9000}"
 

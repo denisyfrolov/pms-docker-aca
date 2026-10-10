@@ -34,7 +34,7 @@ These are layered on top of the upstream image via the s6-overlay tree under `ro
 - **SSH server (`sshd`)** — key-only SSH for port-forwarding/tunneling, enabled only when `SSH_AUTHORIZED_KEYS` is set. Useful for reaching `localhost:32400` to perform Plex first-run setup on a headless/cloud host.
   - `root/etc/cont-init.d/30-sshd-setup` — installs the authorized key, restores/generates persistent host keys, and writes a tunneling-focused `sshd_config`.
   - `root/etc/services.d/sshd/run` — runs `sshd` (idles if SSH is disabled).
-- **HTTP healthcheck endpoint** — a tiny `socat`-based listener that returns `{"status":"ok"}`, suitable for an ACA health probe. Defaults to port `9000`.
+- **HTTP healthcheck endpoint** — a tiny `socat`-based listener that returns `{"status":"ok"}`, suitable for an ACA health probe. Defaults to port `9000`; set `HEALTHCHECK_HTTP_ENABLED=false` to disable it.
   - `root/etc/services.d/healthcheck-http/run` and `root/usr/local/bin/healthcheck-respond`.
 - **Identity & data persistence** — the restore/backup scripts described in the table above (`35-plex-restore`, `36-db-restore`, `prefFile-watch`, `plex-db-backup`).
 - **Graceful shutdown + backup** — `root/etc/services.d/plex/finish` stops Plex, waits for it to exit, then runs the database backup. s6 grace times are raised so the backup fits inside the platform shutdown window.
@@ -52,7 +52,9 @@ In addition to the upstream variables (`TZ`, `PLEX_CLAIM`, `PLEX_UID`, `PLEX_GID
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SSH_AUTHORIZED_KEYS` | _(unset)_ | When set to a public key, enables the SSH service for the `plex` user (key-only, no passwords, no root). When unset, SSH stays disabled. |
+| `HEALTHCHECK_HTTP_ENABLED` | `true` | Set to `false` to disable the HTTP healthcheck endpoint (the service idles instead). |
 | `HEALTHCHECK_HTTP_PORT` | `9000` | Port for the HTTP healthcheck endpoint. |
+| `PREF_BACKUP_RETENTION_DAYS` | `7` | `prefFile-watch` deletes `Preferences.xml.bak.*` and `cert-v2.p12.bak.*` in `/config-defaults` older than this many days (checked at start and hourly). `0` keeps them forever. |
 | `DEBUG` | `false` | When `true`, enables `set -x` tracing in the helper scripts. |
 
 ## Volumes
